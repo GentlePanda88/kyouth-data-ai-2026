@@ -56,11 +56,15 @@ source .venv/bin/activate
 
 uv sync
 
-#Usage
+#Usage (2 options either full pipeline or individual)
 
 I. Run Full Pipeline - to execute the full ETL pipeline: (paste the command in Terminal)
 
 python main.py all
+
+or 
+
+python week_1/main.py all
 
 -> This command will:
 1. Extract raw .mhtml files into Bronze layer
@@ -74,17 +78,33 @@ II. Run Individual Modules
 
 python main.py ingest
 
+or
+
+python week_1/main.py ingest
+
 - Run Processor
 
 python main.py process
+
+or
+
+python week_1/main.py process
 
 - Run Loader
 
 python main.py load
 
+or 
+
+python week_1/main.py load
+
 - Run Data Profiling
 
 python main.py profile
+
+or
+
+python week_1/main.py profile
 
 #Expected Inputs & Outputs
 
@@ -109,6 +129,10 @@ python main.py profile
 #Example Workflow
 
 python main.py all
+
+or
+
+python week_1/main.py all
 
 -> Expected Output
 

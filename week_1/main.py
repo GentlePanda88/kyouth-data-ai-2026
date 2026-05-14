@@ -44,36 +44,6 @@ def run_all():
     print("\n========== PIPELINE COMPLETE ==========\n")
 
 
-#def main():
-	# ORCHESTRATION TO BE IMPLEMENTED HERE
-
-        #print("COMMAND:", command)
-
-       # if len(sys.argv) < 2:
-          #  print("Usage: python main.py [ingest|silver|gold|profile]")
-         #   return
-
-        #command = sys.argv[1]
-
-        #match command:
-           # case "ingest":
-          #      print("🚀 RUN BRONZE CALLED")
-         #       run_bronze()
-
-        #    case "silver":
-       #         run_silver()
-
-      #      case "gold":
-     #           run_gold()
-
-    #        case "profile":
-   #             run_profiler()
-
-  #          case _:
- #               print("Unknown command:", command)
-#                print("Available commands: ingest, silver, gold, profile")
-
-
 def main():
 
     if len(sys.argv) < 2:
@@ -115,21 +85,7 @@ def main():
     else:
         print("❌ UNKNOWN COMMAND:", command)
 
-   # print("ARGS:", sys.argv)
 
-    #if len(sys.argv) < 2:
-      #  print("No command given")
-     #   return
-
-    #command = sys.argv[1]
-    #print("COMMAND:", command)
-
-   # if command == "ingest":
-     #   print("🚀 RUN BRONZE CALLED")
-    #    run_bronze()
-
-   # else:
-  #      print("Unknown command:", command)
 
 if __name__ == "__main__":
     main()
