@@ -5,10 +5,10 @@ from src.processor import process_all_html
 from src.loader import load_all_jsons
 from src.profiler import run_data_profile
 
-SOURCE_DIR = Path("week_1/data/0_source")
-BRONZE_DIR = Path("week_1/data/1_bronze")
-SILVER_DIR = Path("week_1/data/2_silver")
-GOLD_DIR = Path("week_1/data/3_gold")
+SOURCE_DIR = Path("data/0_source")
+BRONZE_DIR = Path("data/1_bronze")
+SILVER_DIR = Path("data/2_silver")
+GOLD_DIR = Path("data/3_gold")
 DB_NAME = "jobs.db"
 
 #print("🔥 MAIN.PY IS RUNNING")
@@ -54,11 +54,11 @@ def main():
         )
 
         print("\nCommand set:")
-        print("python week_1/main.py ingest")
-        print("python week_1/main.py process")
-        print("python week_1/main.py load")
-        print("python week_1/main.py profile")
-        print("python week_1/main.py all")
+        print("python main.py ingest")
+        print("python main.py process")
+        print("python main.py load")
+        print("python main.py profile")
+        print("python main.py all")
 
         return
 
