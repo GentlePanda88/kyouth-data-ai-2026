@@ -20,7 +20,8 @@ class JobListing(BaseModel):
 # Text Cleaning Helper
 # -----------------------------
 def clean_text(text: str) -> str:
-    text = re.sub(r"\s+", " ", text)
+    if not text:
+        return ""
     return text.strip()
 
 
