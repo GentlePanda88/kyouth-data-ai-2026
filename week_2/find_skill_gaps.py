@@ -17,17 +17,122 @@ class SkillGapResult(BaseModel):
 
 
 # =========================
+# SKILL ALIAS MAP
+# =========================
+SKILL_ALIASES = {
+    "mysql": "sql",
+    "postgresql": "sql",
+    "sqlite": "sql",
+    "mssql": "sql",
+
+    "c++": "c++",
+    "c/c++": "c++",
+
+    "node js": "node.js",
+
+    "springboot": "spring boot",
+    "springframework": "spring framework",
+
+    "rest api": "restful api"
+}
+
+
+# =========================
+# MASTER SKILL LIST
+# =========================
+KNOWN_SKILLS = [
+
+    # languages
+    "python",
+    "java",
+    "javascript",
+    "typescript",
+    "php",
+    "c",
+    "c++",
+    "cpp",
+    "c#",
+    "go",
+    "rust",
+    "r",
+    "bash",
+    "powershell",
+
+    # databases
+    "sql",
+    "mysql",
+    "postgresql",
+    "mongodb",
+    "sqlite",
+
+    # ai/ml
+    "tensorflow",
+    "pytorch",
+    "scikit-learn",
+    "llm",
+    "llms",
+    "rag",
+    "langchain",
+    "llamaindex",
+    "deep learning",
+    "machine learning",
+
+    # cloud/devops
+    "docker",
+    "kubernetes",
+    "aws",
+    "azure",
+    "gcp",
+    "google cloud",
+    "ci/cd",
+    "jenkins",
+    "github actions",
+    "gitlab ci",
+    "linux",
+    "nginx",
+
+    # frameworks/tools
+    "spring framework",
+    "spring boot",
+    "fastapi",
+    "flask",
+    "node.js",
+    "git",
+    "github",
+
+    # analytics
+    "tableau",
+    "powerbi",
+    "datastudio",
+    "excel",
+    "a/b testing",
+
+    # engineering
+    "etl",
+    "api",
+    "restful api",
+    "feature engineering",
+    "data processing",
+    "data engineering",
+    "prompt engineering",
+    "benchmarking",
+    "regex",
+    "pydantic",
+    "mcp"
+]
+
+
+# =========================
 # NORMALIZER
 # =========================
 def normalize(skill: str) -> str:
+
     skill = skill.lower().strip()
 
-    skill = skill.replace("c++", "cpp")
-    skill = skill.replace("c/c++", "cpp")
-    skill = skill.replace("node js", "node.js")
-    skill = skill.replace("springboot", "spring boot")
-    skill = skill.replace("springframework", "spring framework")
-    skill = skill.replace("rest api", "restful api")
+    skill = re.sub(r"\s+", " ", skill)
+
+    if skill in SKILL_ALIASES:
+        return SKILL_ALIASES[skill]
 
     return skill
 
@@ -39,37 +144,42 @@ def extract_resume_skills(text: str) -> Set[str]:
 
     text = text.lower()
 
-    known_skills = [
-        "python", "sql", "mcp", "regex", "pydantic",
-        "docker", "git", "github", "linux",
-        "api", "rest", "restful api",
-        "tensorflow", "pytorch", "scikit-learn",
-        "aws", "gcp", "google cloud", "azure",
-        "ci/cd", "testing", "benchmarking",
-        "token optimization", "prompt engineering"
-    ]
-
     found = set()
 
-    for skill in known_skills:
-        pattern = r"\b" + re.escape(skill) + r"\b"
-        if re.search(pattern, text):
-            found.add(normalize(skill))
+    for skill in KNOWN_SKILLS:
+
+        skill_lower = skill.lower()
+
+        # special handling for symbols
+        if skill_lower in ["c++", "c#", "node.js"]:
+
+            if skill_lower in text:
+                found.add(normalize(skill))
+
+        else:
+            pattern = r"\b" + re.escape(skill_lower) + r"\b"
+
+            if re.search(pattern, text):
+                found.add(normalize(skill))
 
     return found
 
-
 # =========================
-# LOAD REQUIRED SKILLS FROM DB
+# LOAD REQUIRED SKILLS
 # =========================
 def load_required_skills(db_url: str) -> Set[str]:
 
     conn = sqlite3.connect(db_url)
     cursor = conn.cursor()
 
-    cursor.execute("SELECT tech_stack FROM jobs WHERE tech_stack IS NOT NULL")
+    cursor.execute("""
+        SELECT tech_stack
+        FROM jobs
+        WHERE tech_stack IS NOT NULL
+    """)
 
     rows = cursor.fetchall()
+
     conn.close()
 
     required = set()
@@ -79,8 +189,12 @@ def load_required_skills(db_url: str) -> Set[str]:
         if not tech_stack:
             continue
 
-        for s in tech_stack.split(","):
-            required.add(normalize(s))
+        for skill in tech_stack.split(","):
+
+            cleaned = normalize(skill)
+
+            if cleaned:
+                required.add(cleaned)
 
     return required
 
@@ -93,26 +207,34 @@ def find_skill_gaps(
     db_url: str = "data/jobs_d1.db"
 ) -> SkillGapResult:
 
-    start_time = time.time()   # ⏱ start timer
+    start_time = time.time()
 
     try:
-        # read resume file
+
+        # =========================
+        # READ RESUME
+        # =========================
         with open(input_file_path, "r", encoding="utf-8") as f:
             resume_text = f.read()
 
-        # extract skills from resume
+        # =========================
+        # EXTRACT RESUME SKILLS
+        # =========================
         resume_skills = extract_resume_skills(resume_text)
 
-        # load required skills from DB
+        # =========================
+        # LOAD REQUIRED SKILLS
+        # =========================
         required_skills = load_required_skills(db_url)
 
-        # compute gaps
+        # =========================
+        # COMPUTE GAPS
+        # =========================
         gaps = sorted(list(required_skills - resume_skills))
 
         # =========================
-        # TIME + TOKEN METRICS
+        # METRICS
         # =========================
-
         time_ms = round((time.time() - start_time) * 1000, 2)
 
         tokens = (
@@ -129,25 +251,10 @@ def find_skill_gaps(
             tokens=tokens
         )
 
-    except FileNotFoundError:
-        return SkillGapResult(
-            gaps=[],
-            resume_skills=[],
-            required_skills=[],
-            time_ms=0,
-            tokens=0
-        )
+    except Exception as e:
 
-    except sqlite3.Error:
-        return SkillGapResult(
-            gaps=[],
-            resume_skills=[],
-            required_skills=[],
-            time_ms=0,
-            tokens=0
-        )
+        print("ERROR:", e)
 
-    except Exception:
         return SkillGapResult(
             gaps=[],
             resume_skills=[],

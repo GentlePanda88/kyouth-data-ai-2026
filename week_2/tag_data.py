@@ -1,81 +1,68 @@
 import sqlite3
 import time
 import json
-from typing import Dict, List
+import re
+from typing import List, Dict
 
 from prompt_model import prompt_model
 
-
-# =========================
-# CONFIG
-# =========================
 BATCH_SIZE = 2
 MODEL_NAME = "llama3.1"
-
 MAX_RETRIES = 3
-RETRY_DELAY = 3
-
-
-# =========================
-# TOKEN ESTIMATION
-# =========================
-def estimate_tokens(text: str) -> int:
-    return len(text.split()) * 4
+RETRY_DELAY = 2
 
 
 # =========================
 # CLEAN TEXT
 # =========================
 def clean_text(text: str) -> str:
-    if not text:
-        return ""
-
-    # remove weird spacing/newlines
-    text = " ".join(text.split())
-
-    # keep only first 120 words
-    text = " ".join(text.split()[:120])
-
-    return text
+    return " ".join(text.split()) if text else ""
 
 
 # =========================
-# PROMPT BUILDER
+# FIXED JSON EXTRACTOR
+# =========================
+def extract_json(text: str):
+
+    matches = re.findall(r"\[\s*\{.*?\}\s*\]", text, re.DOTALL)
+
+    if not matches:
+        raise ValueError("No JSON found")
+
+    all_items = []
+
+    for m in matches:
+        try:
+            parsed = json.loads(m)
+            if isinstance(parsed, list):
+                all_items.extend(parsed)
+        except:
+            continue
+
+    if not all_items:
+        raise ValueError("Failed to parse JSON")
+
+    return all_items
+
+
+# =========================
+# PROMPT
 # =========================
 def build_prompt(batch: List[Dict]) -> str:
 
-    prompt = """
-You are a job skill extraction system.
+    prompt = f"""
+Extract ONLY technical skills.
 
-Extract ONLY technical skills from the job descriptions.
+Return EXACTLY {len(batch)} JSON objects.
 
-Return STRICT VALID JSON ONLY.
+FORMAT ONLY:
+[{{"source_id":123,"tech_stack":"skill1, skill2"}}]
 
-Output format:
-[
-  {
-    "source_id": 123,
-    "tech_stack": "Python, SQL, Docker"
-  }
-]
-
-Rules:
-- Output MUST start with [
-- Output MUST end with ]
-- No markdown
-- No explanations
-- No extra text
-- tech_stack must be comma-separated
+NO explanation. NO markdown.
 """
 
     for job in batch:
-
-        prompt += f"""
-
-ID: {job['source_id']}
-TITLE: {clean_text(job['job_title'])}
-DESCRIPTION: {clean_text(job['description'])}
-"""
+        prompt += f"\n{job['source_id']} | {clean_text(job['description'])}"
 
     return prompt
 
@@ -84,246 +71,122 @@ DESCRIPTION: {clean_text(job['description'])}
 # QUALITY METRICS
 # =========================
 def compute_quality(results):
-
-    duplicate_count = 0
     total_tags = 0
+    duplicate_count = 0
 
     for r in results:
-
-        tags = [
-            t.strip().lower()
-            for t in r["tech_stack"].split(",")
-            if t.strip()
-        ]
-
+        tags = [t.strip().lower() for t in r["tech_stack"].split(",") if t.strip()]
         total_tags += len(tags)
         duplicate_count += len(tags) - len(set(tags))
 
-    duplicate_rate = (
-        duplicate_count / total_tags * 100
-        if total_tags > 0 else 0
-    )
-
     return {
-        "duplicate_count": duplicate_count,
-        "duplicate_rate": duplicate_rate
+        "duplicate_rate": (duplicate_count / total_tags * 100) if total_tags else 0
     }
 
 
 # =========================
-# MAIN FUNCTION
+# MAIN FUNCTION (FIXED FINAL)
 # =========================
 def tag_data(db_url: str):
 
     start_time = time.time()
 
-    total_input_tokens = 0
-    total_output_tokens = 0
+    total_tokens = 0
     total_updated = 0
 
-    try:
-        conn = sqlite3.connect(db_url)
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
+    conn = sqlite3.connect(db_url)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
 
-    except Exception as e:
-        print(f"Database error: {e}")
+    cursor.execute("""
+        SELECT source_id, description
+        FROM jobs
+        WHERE tech_stack IS NULL OR tech_stack = ''
+    """)
+
+    jobs = [dict(r) for r in cursor.fetchall()]
+
+    if not jobs:
+        print("No data to tag")
         return
 
-    try:
+    for i in range(0, len(jobs), BATCH_SIZE):
 
-        cursor.execute("""
-            SELECT source_id, job_title, description
-            FROM jobs
-            WHERE tech_stack IS NULL OR tech_stack = ''
-        """)
+        batch = jobs[i:i+BATCH_SIZE]
+        prompt = build_prompt(batch)
 
-        rows = cursor.fetchall()
+        success = False
 
-        if not rows:
+        for attempt in range(MAX_RETRIES):
 
-            elapsed = (time.time() - start_time) * 1000
+            try:
+                response = prompt_model(MODEL_NAME, prompt)
 
-            print("No data to tag")
-            print(f"Total tokens used: 0, took {elapsed:.3f}ms")
+                if not response:
+                    raise ValueError("Empty response")
 
-            return
+                print("\nRAW RESPONSE:\n", response)
 
-        jobs = [dict(r) for r in rows]
+                results = extract_json(response)
 
-        # =========================
-        # BATCH PROCESSING
-        # =========================
-        for batch_index in range(0, len(jobs), BATCH_SIZE):
+                # =========================
+                # SAFE MAP (FIXED TYPE HANDLING)
+                # =========================
+                result_map = {}
 
-            batch = jobs[batch_index:batch_index + BATCH_SIZE]
+                for r in results:
+                    if "source_id" in r and "tech_stack" in r:
+                        try:
+                            sid = str(r["source_id"]).strip()
+                            result_map[sid] = r["tech_stack"]
+                        except:
+                            continue
 
-            prompt = build_prompt(batch)
+                # =========================
+                # DB UPDATE (TYPE SAFE)
+                # =========================
+                for job in batch:
 
-            success = False
+                    sid = str(job["source_id"]).strip()
 
-            for attempt in range(1, MAX_RETRIES + 1):
-
-                try:
-
-                    response_text = prompt_model(
-                        MODEL_NAME,
-                        prompt
-                    )
-
-                    # =========================
-                    # RESPONSE VALIDATION
-                    # =========================
-                    if not response_text:
-                        raise ValueError("Empty model response")
-
-                    # remove markdown if exists
-                    response_text = (
-                        response_text
-                        .replace("```json", "")
-                        .replace("```", "")
-                        .strip()
-                    )
-
-                    # DEBUG PRINT
-                    print("\n===== RAW RESPONSE =====")
-                    print(response_text)
-                    print("========================\n")
-
-                    # basic JSON validation
-                    if not response_text.startswith("["):
-                        raise ValueError(
-                            "Model did not return JSON array"
-                        )
-
-                    # parse JSON
-                    try:
-                        results = json.loads(response_text)
-
-                    except json.JSONDecodeError:
-                        print("\nINVALID JSON RESPONSE:")
-                        print(response_text)
-                        raise
-
-                    # ensure list
-                    if not isinstance(results, list):
-                        raise ValueError(
-                            "Response is not a JSON list"
-                        )
-
-                    # ensure correct batch size
-                    if len(results) != len(batch):
-                        raise ValueError(
-                            "Mismatch between batch size and response"
-                        )
-
-                    # validate fields
-                    for item in results:
-
-                        if "source_id" not in item:
-                            raise ValueError(
-                                "Missing source_id field"
-                            )
-
-                        if "tech_stack" not in item:
-                            raise ValueError(
-                                "Missing tech_stack field"
-                            )
-
-                    # =========================
-                    # TOKEN TRACKING
-                    # =========================
-                    total_input_tokens += estimate_tokens(prompt)
-
-                    total_output_tokens += estimate_tokens(
-                        response_text
-                    )
-
-                    # =========================
-                    # QUALITY METRICS
-                    # =========================
-                    quality = compute_quality(results)
-
-                    print("Quality Metrics:", quality)
-
-                    # =========================
-                    # DB UPDATE
-                    # =========================
-                    for item in results:
+                    if sid in result_map:
 
                         cursor.execute("""
                             UPDATE jobs
                             SET tech_stack = ?
-                            WHERE source_id = ?
-                        """, (
-                            item["tech_stack"],
-                            item["source_id"]
-                        ))
+                            WHERE CAST(source_id AS TEXT) = ?
+                        """, (result_map[sid], sid))
 
-                        print(
-                            f"Analyzed Job "
-                            f"{item['source_id']}: "
-                            f"{item['tech_stack']}"
-                        )
-
+                        print(f"Updated {sid}")
                         total_updated += 1
 
-                    conn.commit()
+                conn.commit()
 
-                    success = True
-                    break
+                # =========================
+                # TOKEN ESTIMATION
+                # =========================
+                total_tokens += len(prompt.split()) * 4
+                total_tokens += len(response.split()) * 4
 
-                except Exception as e:
+                success = True
+                break
 
-                    print(
-                        f"[Batch {batch_index // BATCH_SIZE}] "
-                        f"Attempt {attempt} failed: {e}"
-                    )
+            except Exception as e:
+                print(f"[Batch {i//BATCH_SIZE}] attempt {attempt+1} failed: {e}")
+                time.sleep(RETRY_DELAY)
 
-                    time.sleep(RETRY_DELAY)
+        if not success:
+            print(f"[Batch {i//BATCH_SIZE}] skipped")
 
-            if not success:
+    elapsed = (time.time() - start_time) * 1000
 
-                print(
-                    f"[Batch {batch_index // BATCH_SIZE}] "
-                    f"skipped after retries"
-                )
+    print("\n===== FINAL =====")
+    print("tokens:", total_tokens)
+    print("time_ms:", round(elapsed, 2))
+    print("rows_updated:", total_updated)
 
-        elapsed = (time.time() - start_time) * 1000
-
-        total_tokens = (
-            total_input_tokens +
-            total_output_tokens
-        )
-
-        # =========================
-        # FINAL SUMMARY
-        # =========================
-        print("\n===== SUMMARY =====")
-
-        print(
-            f"Total tokens used: "
-            f"{total_tokens}, "
-            f"took {elapsed:.3f}ms"
-        )
-
-        return {
-            "tokens_used": total_tokens,
-            "time_ms": elapsed,
-            "rows_updated": total_updated
-        }
-
-    except Exception as e:
-
-        print(f"Unexpected error: {e}")
-
-    finally:
-        conn.close()
+    conn.close()
 
 
-# =========================
-# RUN DIRECTLY
-# =========================
 if __name__ == "__main__":
-
     tag_data("data/jobs_d1.db")
