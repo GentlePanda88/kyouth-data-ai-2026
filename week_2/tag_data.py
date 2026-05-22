@@ -7,7 +7,7 @@ from typing import List, Dict
 from prompt_model import prompt_model
 
 BATCH_SIZE = 2
-MODEL_NAME = "llama3.1"
+MODEL_NAME = "gemini-2.5-flash"
 MAX_RETRIES = 3
 RETRY_DELAY = 2
 
