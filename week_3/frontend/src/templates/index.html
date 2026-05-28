@@ -1,9 +1,404 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Frontend Server</title>
-</head>
-<body>
-    <h1>Hello World 🚀</h1>
-</body>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Resume Helper Chatbot</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+    <style>
+      body {
+        background-color: #f0f2f5;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .chat-wrapper {
+        max-width: 720px;
+        width: 100%;
+        margin: 0 auto;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 1rem;
+        gap: 1rem;
+      }
+
+      .chat-header {
+        text-align: center;
+        padding: 0.75rem 0;
+        font-weight: 600;
+        font-size: 1.1rem;
+        color: #333;
+        border-bottom: 1px solid #dee2e6;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      }
+
+      /* ── Chat history ── */
+      #chat-history {
+        flex: 1;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+        padding: 1rem;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        min-height: 0; /* allow flex shrink */
+      }
+
+      /* ── Bubbles ── */
+      .bubble-row {
+        display: flex;
+        align-items: flex-end;
+        gap: 0.5rem;
+      }
+      .bubble-row.user  { justify-content: flex-end; }
+      .bubble-row.bot   { justify-content: flex-start; }
+
+      .bubble {
+        max-width: 70%;
+        padding: 0.6rem 0.9rem;
+        border-radius: 18px;
+        font-size: 0.92rem;
+        line-height: 1.45;
+        word-break: break-word;
+      }
+      .bubble-row.user .bubble {
+        background-color: #5c5fc4;
+        color: #fff;
+        border-bottom-right-radius: 4px;
+      }
+      .bubble-row.bot .bubble {
+        background-color: #f0f0f0;
+        color: #222;
+        border-bottom-left-radius: 4px;
+      }
+
+      /* avatar circle for bot */
+      .avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #5c5fc4;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+
+      /* ── PDF badge ── */
+      #pdf-badge {
+        display: none;
+        align-items: center;
+        gap: 0.4rem;
+        background: #e9ecef;
+        border-radius: 8px;
+        padding: 0.3rem 0.7rem;
+        font-size: 0.82rem;
+        color: #495057;
+      }
+      #pdf-badge .remove-pdf {
+        cursor: pointer;
+        color: #aaa;
+        font-weight: bold;
+        line-height: 1;
+      }
+      #pdf-badge .remove-pdf:hover { color: #dc3545; }
+
+      /* ── Input area ── */
+      .input-area {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        padding: 0.75rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      .input-row {
+        display: flex;
+        align-items: flex-end;
+        gap: 0.5rem;
+      }
+
+      #user-input {
+        resize: none;
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+        padding: 0.55rem 0.75rem;
+        font-size: 0.9rem;
+        flex: 1;
+        max-height: 120px;
+        overflow-y: auto;
+      }
+      #user-input:focus { outline: none; border-color: #5c5fc4; box-shadow: 0 0 0 2px rgba(92,95,196,0.15); }
+
+      .btn-send {
+        background-color: #5c5fc4;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 0.55rem 1.1rem;
+        font-size: 0.9rem;
+        white-space: nowrap;
+      }
+      .btn-send:hover:not(:disabled) { background-color: #4a4daa; }
+      .btn-send:disabled { opacity: 0.6; cursor: not-allowed; }
+
+      .btn-attach {
+        background: none;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 0.5rem 0.65rem;
+        color: #6c757d;
+        cursor: pointer;
+        line-height: 1;
+      }
+      .btn-attach:hover { background: #f8f9fa; border-color: #5c5fc4; color: #5c5fc4; }
+
+      /* ── Typing indicator ── */
+      .typing-indicator {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+        padding: 0.4rem 0.6rem;
+      }
+      .typing-indicator span {
+        width: 7px; height: 7px;
+        background: #aaa;
+        border-radius: 50%;
+        animation: bounce 1.2s infinite;
+      }
+      .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+      .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+      @keyframes bounce {
+        0%, 80%, 100% { transform: translateY(0); }
+        40% { transform: translateY(-6px); }
+      }
+    </style>
+  </head>
+  <body>
+
+    <div class="chat-wrapper">
+
+      <!-- Header -->
+      <div class="chat-header">🤖 Resume Helper Chatbot</div>
+
+      <!-- Chat history -->
+      <div id="chat-history">
+        <!-- Initial bot greeting -->
+        <div class="bubble-row bot">
+          <div class="avatar">AI</div>
+          <div class="bubble">Hi! How can I help you today?</div>
+        </div>
+      </div>
+
+      <!-- Input area -->
+      <div class="input-area">
+
+        <!-- PDF badge (shown when a file is selected) -->
+        <div id="pdf-badge">
+          📄 <span id="pdf-name"></span>
+          <span class="remove-pdf" onclick="removePdf()">✕</span>
+        </div>
+
+        <div class="input-row">
+          <!-- Hidden file input -->
+          <input type="file" id="pdf-input" accept=".pdf" style="display:none" onchange="handlePdfSelect(event)">
+
+          <!-- Attach button -->
+          <button class="btn-attach" title="Attach PDF" onclick="document.getElementById('pdf-input').click()">
+            📎
+          </button>
+
+          <!-- Message textarea -->
+          <textarea
+            id="user-input"
+            rows="1"
+            placeholder="Type a message..."
+            onkeydown="handleKey(event)"
+            oninput="autoResize(this)"
+          ></textarea>
+
+          <!-- Send button -->
+          <button class="btn-send" id="send-btn" onclick="sendMessage()">Send</button>
+        </div>
+
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+    <!-- PDF.js for in-browser PDF text extraction -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+    <script>
+      // ── Backend URL injected by FastAPI/Jinja2 from .env ──
+      const BACKEND_URL = "{{ backend_url }}";
+
+      // ── PDF state ──
+      let pdfText = null;
+
+      // ── Auto-resize textarea ──
+      function autoResize(el) {
+        el.style.height = "auto";
+        el.style.height = Math.min(el.scrollHeight, 120) + "px";
+      }
+
+      // ── Send on Enter (Shift+Enter for newline) ──
+      function handleKey(e) {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      }
+
+      // ── PDF file selection ──
+      function handlePdfSelect(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        document.getElementById("pdf-name").textContent = file.name;
+        document.getElementById("pdf-badge").style.display = "flex";
+        extractPdfText(file);
+      }
+
+      function removePdf() {
+        pdfText = null;
+        document.getElementById("pdf-input").value = "";
+        document.getElementById("pdf-badge").style.display = "none";
+        document.getElementById("pdf-name").textContent = "";
+      }
+
+      // ── Extract text from PDF using PDF.js ──
+      async function extractPdfText(file) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+          "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let fullText = "";
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          fullText += content.items.map(item => item.str).join(" ") + "\n";
+        }
+
+        pdfText = fullText.trim();
+      }
+
+      // ── Append a bubble to chat history ──
+      function appendBubble(role, text) {
+        const history = document.getElementById("chat-history");
+
+        const row = document.createElement("div");
+        row.className = `bubble-row ${role}`;
+
+        if (role === "bot") {
+          const avatar = document.createElement("div");
+          avatar.className = "avatar";
+          avatar.textContent = "AI";
+          row.appendChild(avatar);
+        }
+
+        const bubble = document.createElement("div");
+        bubble.className = "bubble";
+        bubble.textContent = text;
+        row.appendChild(bubble);
+
+        history.appendChild(row);
+        history.scrollTop = history.scrollHeight;
+        return bubble;
+      }
+
+      // ── Typing indicator ──
+      function showTyping() {
+        const history = document.getElementById("chat-history");
+        const row = document.createElement("div");
+        row.className = "bubble-row bot";
+        row.id = "typing-row";
+
+        const avatar = document.createElement("div");
+        avatar.className = "avatar";
+        avatar.textContent = "AI";
+
+        const bubble = document.createElement("div");
+        bubble.className = "bubble";
+        bubble.innerHTML = `<div class="typing-indicator">
+          <span></span><span></span><span></span>
+        </div>`;
+
+        row.appendChild(avatar);
+        row.appendChild(bubble);
+        history.appendChild(row);
+        history.scrollTop = history.scrollHeight;
+      }
+
+      function removeTyping() {
+        const el = document.getElementById("typing-row");
+        if (el) el.remove();
+      }
+
+      // ── Main send function ──
+      async function sendMessage() {
+        const input = document.getElementById("user-input");
+        const message = input.value.trim();
+        if (!message) return;
+
+        // Render user bubble
+        appendBubble("user", message);
+
+        // Clear input
+        input.value = "";
+        input.style.height = "auto";
+
+        // Disable send while waiting
+        const sendBtn = document.getElementById("send-btn");
+        sendBtn.disabled = true;
+
+        // Build payload
+        const payload = { message };
+        if (pdfText) {
+          payload.pdf_text = pdfText;
+          removePdf(); // clear after sending
+        }
+
+        // Show typing indicator
+        showTyping();
+
+        try {
+          const response = await fetch(`${BACKEND_URL}/chat`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+
+          removeTyping();
+
+          if (!response.ok) {
+            appendBubble("bot", `Error: server returned ${response.status}`);
+            return;
+          }
+
+          const data = await response.json();
+          appendBubble("bot", data.reply ?? JSON.stringify(data));
+
+        } catch (err) {
+          removeTyping();
+          appendBubble("bot", `Could not reach the server. (${err.message})`);
+        } finally {
+          sendBtn.disabled = false;
+          input.focus();
+        }
+      }
+    </script>
+
+  </body>
 </html>
