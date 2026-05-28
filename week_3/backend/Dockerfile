@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.14
 
 WORKDIR /app
 
@@ -12,11 +12,9 @@ COPY find_skill_gaps.py .
 COPY prompt_model.py .
 COPY tag_data.py .
 COPY jobs.db .
-
-# Copy env (or pass at runtime via --env-file)
 COPY .env .
 
 EXPOSE 8001
 
-# host.docker.internal lets the container reach Ollama on your machine's localhost
+# OLLAMA_HOST is overridden in docker-compose.yml to reach host machine
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
