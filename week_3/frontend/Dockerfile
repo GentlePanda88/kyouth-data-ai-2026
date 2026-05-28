@@ -9,6 +9,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy source files
 COPY src/ ./src/
 COPY .env .
+COPY jobs.db .
 
 EXPOSE 8000
 
