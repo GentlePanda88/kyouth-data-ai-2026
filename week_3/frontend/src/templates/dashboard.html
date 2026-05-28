@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Jobs DB Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --accent: #5c5fc4;
+      --accent-light: rgba(92,95,196,0.12);
+    }
+    body { background: #f0f2f5; font-family: system-ui, sans-serif; }
+
+    /* ── Nav ── */
+    .topbar {
+      background: #fff;
+      border-bottom: 1px solid #e0e0e0;
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky; top: 0; z-index: 10;
+    }
+    .topbar .brand { font-weight: 700; font-size: 1.05rem; color: var(--accent); }
+    .topbar a { color: #555; text-decoration: none; font-size: 0.88rem; }
+    .topbar a:hover { color: var(--accent); }
+
+    /* ── Cards ── */
+    .stat-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 1.2rem 1.4rem;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .stat-card .label { font-size: 0.78rem; color: #888; text-transform: uppercase; letter-spacing: .04em; }
+    .stat-card .value { font-size: 2rem; font-weight: 700; color: var(--accent); line-height: 1.1; }
+
+    .chart-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 1.25rem 1.4rem;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .chart-card h6 {
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: #888;
+      margin-bottom: 1rem;
+    }
+
+    /* ── Search ── */
+    #search-input {
+      border-radius: 8px;
+      border: 1px solid #dee2e6;
+      padding: 0.55rem 0.9rem;
+      font-size: 0.9rem;
+    }
+    #search-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-light); }
+
+    /* ── Results table ── */
+    #results-table { font-size: 0.85rem; }
+    #results-table thead th { background: var(--accent); color: #fff; font-weight: 600; border: none; }
+    #results-table tbody tr:hover { background: var(--accent-light); }
+    .desc-cell {
+      max-width: 340px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
+    }
+    .badge-cat {
+      background: var(--accent-light);
+      color: var(--accent);
+      font-size: 0.72rem;
+      border-radius: 20px;
+      padding: 2px 8px;
+    }
+
+    /* ── Modal description ── */
+    #desc-modal .modal-body { white-space: pre-wrap; font-size: 0.88rem; max-height: 60vh; overflow-y: auto; }
+  </style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+  <span class="brand">📊 Jobs DB Dashboard</span>
+  <a href="/">💬 Back to Chat</a>
+</div>
+
+<div class="container-fluid px-4 py-4" style="max-width: 1200px;">
+
+  <!-- Stat cards row -->
+  <div class="row g-3 mb-4" id="stat-row">
+    <div class="col-6 col-md-3">
+      <div class="stat-card">
+        <div class="label">Total Jobs</div>
+        <div class="value" id="stat-total">—</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-card">
+        <div class="label">Companies</div>
+        <div class="value" id="stat-companies">—</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-card">
+        <div class="label">Top Tech</div>
+        <div class="value" id="stat-top-tech" style="font-size:1.2rem; padding-top:0.4rem;">—</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-card">
+        <div class="label">Top Category</div>
+        <div class="value" id="stat-top-cat" style="font-size:1.1rem; padding-top:0.4rem;">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts row -->
+  <div class="row g-3 mb-4">
+
+    <!-- Pie: job categories -->
+    <div class="col-md-4">
+      <div class="chart-card h-100">
+        <h6>Job Category Distribution</h6>
+        <canvas id="pie-chart" height="240"></canvas>
+      </div>
+    </div>
+
+    <!-- Bar: tech stack -->
+    <div class="col-md-8">
+      <div class="chart-card h-100">
+        <h6>Top 15 Technologies (from job descriptions)</h6>
+        <canvas id="bar-chart" height="240"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Second chart row -->
+  <div class="row g-3 mb-4">
+    <div class="col-12">
+      <div class="chart-card">
+        <h6>Top Companies by Job Count</h6>
+        <canvas id="company-chart" height="120"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search section -->
+  <div class="chart-card">
+    <h6>Search Jobs</h6>
+    <div class="d-flex gap-2 mb-3">
+      <input type="text" id="search-input" class="form-control" placeholder="Search by title, company, or keyword…">
+      <button class="btn btn-sm px-3" style="background:var(--accent);color:#fff;border-radius:8px;" onclick="doSearch()">Search</button>
+      <button class="btn btn-sm px-3" style="background:#f0f0f0;border-radius:8px;" onclick="clearSearch()">Clear</button>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover mb-0" id="results-table">
+        <thead>
+          <tr>
+            <th>Job Title</th>
+            <th>Company</th>
+            <th>Category</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody id="results-body">
+          <tr><td colspan="4" class="text-center text-muted py-3">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="text-muted mt-2" style="font-size:0.78rem;" id="result-count"></div>
+  </div>
+
+</div>
+
+<!-- Description modal -->
+<div class="modal fade" id="desc-modal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="desc-modal-title"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="desc-modal-body"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  const PALETTE = [
+    "#5c5fc4","#7c7fd4","#3d9be9","#36c2a8","#f5a623",
+    "#e05c5c","#9b59b6","#2ecc71","#e67e22","#1abc9c"
+  ];
+
+  // ── Fetch helpers ────────────────────────────────────────────────────────
+  async function fetchJSON(url) {
+    const res = await fetch(url);
+    return res.json();
+  }
+
+  // ── Categorise title (mirrors Python logic) ───────────────────────────────
+  const CAT_RULES = {
+    "AI / ML":        ["ai", "machine learning", "ml", "deep learning", "llm", "gen ai", "generative", "computer vision", "nlp", "algorithm"],
+    "Data":           ["data engineer", "data analyst", "data scientist", "analytics", "analytic"],
+    "Software Eng":   ["software engineer", "software developer", "executive, software"],
+    "Full Stack":     ["full stack", "full-stack"],
+    "Backend":        ["backend", "back-end", "back end"],
+    "Frontend":       ["frontend", "front-end", "front end", "web developer"],
+    "Automation/QA":  ["automation", "qa engineer", "quality assurance", "selenium", "tester"],
+    "DevOps / Cloud": ["devops", "cloud", "system administrator"],
+  };
+  function categorise(title) {
+    const t = title.toLowerCase();
+    for (const [cat, kws] of Object.entries(CAT_RULES)) {
+      if (kws.some(k => t.includes(k))) return cat;
+    }
+    return "Other";
+  }
+
+  // ── Charts ───────────────────────────────────────────────────────────────
+  async function loadCharts() {
+    const [catData, techData, compData] = await Promise.all([
+      fetchJSON("/api/jobs/categories"),
+      fetchJSON("/api/jobs/techstack"),
+      fetchJSON("/api/jobs/companies"),
+    ]);
+
+    // Stat cards
+    const totalJobs = catData.values.reduce((a, b) => a + b, 0);
+    document.getElementById("stat-total").textContent = totalJobs;
+    document.getElementById("stat-top-tech").textContent = techData.labels[0] ?? "—";
+    const topCatIdx = catData.values.indexOf(Math.max(...catData.values));
+    document.getElementById("stat-top-cat").textContent = catData.labels[topCatIdx] ?? "—";
+
+    // Companies stat from company chart
+    const companyCount = compData.labels.length;
+    // Fetch total distinct companies separately via search
+    fetchJSON("/api/jobs/search?q=").then(d => {
+      const unique = new Set(d.results.map(r => r.company)).size;
+      // We'll just use total from DB; approximate here
+    });
+    document.getElementById("stat-companies").textContent = compData.labels.length + "+";
+
+    // Pie chart — job categories
+    new Chart(document.getElementById("pie-chart"), {
+      type: "doughnut",
+      data: {
+        labels: catData.labels,
+        datasets: [{
+          data: catData.values,
+          backgroundColor: PALETTE,
+          borderWidth: 2,
+          borderColor: "#fff",
+          hoverOffset: 6,
+        }]
+      },
+      options: {
+        plugins: {
+          legend: { position: "bottom", labels: { font: { size: 11 }, padding: 10 } }
+        },
+        cutout: "55%",
+      }
+    });
+
+    // Bar chart — tech stack
+    new Chart(document.getElementById("bar-chart"), {
+      type: "bar",
+      data: {
+        labels: techData.labels,
+        datasets: [{
+          label: "Job postings mentioning",
+          data: techData.values,
+          backgroundColor: techData.labels.map((_, i) => PALETTE[i % PALETTE.length]),
+          borderRadius: 6,
+          borderSkipped: false,
+        }]
+      },
+      options: {
+        plugins: { legend: { display: false } },
+        scales: {
+          y: {
+            beginAtZero: true,
+            grid: { color: "#f0f0f0" },
+            ticks: { font: { size: 11 } }
+          },
+          x: { grid: { display: false }, ticks: { font: { size: 11 } } }
+        }
+      }
+    });
+
+    // Horizontal bar — companies
+    new Chart(document.getElementById("company-chart"), {
+      type: "bar",
+      data: {
+        labels: compData.labels,
+        datasets: [{
+          label: "Job postings",
+          data: compData.values,
+          backgroundColor: "#5c5fc4",
+          borderRadius: 5,
+          borderSkipped: false,
+        }]
+      },
+      options: {
+        indexAxis: "y",
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { beginAtZero: true, grid: { color: "#f0f0f0" }, ticks: { stepSize: 1 } },
+          y: { grid: { display: false }, ticks: { font: { size: 11 } } }
+        }
+      }
+    });
+  }
+
+  // ── Search ───────────────────────────────────────────────────────────────
+  const descModal = new bootstrap.Modal(document.getElementById("desc-modal"));
+
+  function renderResults(data) {
+    const tbody = document.getElementById("results-body");
+    const count = document.getElementById("result-count");
+
+    if (!data.results.length) {
+      tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-3">No results found.</td></tr>`;
+      count.textContent = "";
+      return;
+    }
+
+    tbody.innerHTML = data.results.map(r => {
+      const cat = categorise(r.job_title);
+      const desc = (r.description || "").slice(0, 120) + "…";
+      return `
+        <tr>
+          <td><strong>${escHtml(r.job_title)}</strong></td>
+          <td>${escHtml(r.company)}</td>
+          <td><span class="badge-cat">${cat}</span></td>
+          <td class="desc-cell" onclick="showDesc('${escAttr(r.job_title)}','${escAttr(r.description || '')}')"
+              title="Click to read full description">
+            ${escHtml(desc)}
+          </td>
+        </tr>`;
+    }).join("");
+
+    count.textContent = `Showing ${data.results.length} result${data.results.length !== 1 ? "s" : ""}`;
+  }
+
+  async function doSearch() {
+    const q = document.getElementById("search-input").value.trim();
+    const data = await fetchJSON(`/api/jobs/search?q=${encodeURIComponent(q)}`);
+    renderResults(data);
+  }
+
+  async function clearSearch() {
+    document.getElementById("search-input").value = "";
+    const data = await fetchJSON("/api/jobs/search?q=");
+    renderResults(data);
+  }
+
+  function showDesc(title, desc) {
+    document.getElementById("desc-modal-title").textContent = title;
+    document.getElementById("desc-modal-body").textContent = desc || "No description available.";
+    descModal.show();
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function escHtml(s) {
+    return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+  function escAttr(s) {
+    return String(s ?? "").replace(/'/g, "\\'").replace(/\n/g, " ");
+  }
+
+  // Enter key on search
+  document.getElementById("search-input").addEventListener("keydown", e => {
+    if (e.key === "Enter") doSearch();
+  });
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  loadCharts();
+  clearSearch(); // load default results on page load
+</script>
+</body>
+</html>
