@@ -36,7 +36,6 @@
         box-shadow: 0 1px 4px rgba(0,0,0,0.06);
       }
 
-      /* ── Chat history ── */
       #chat-history {
         flex: 1;
         overflow-y: auto;
@@ -47,10 +46,9 @@
         background: #fff;
         border-radius: 12px;
         box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-        min-height: 0; /* allow flex shrink */
+        min-height: 0;
       }
 
-      /* ── Bubbles ── */
       .bubble-row {
         display: flex;
         align-items: flex-end;
@@ -78,7 +76,6 @@
         border-bottom-left-radius: 4px;
       }
 
-      /* avatar circle for bot */
       .avatar {
         width: 32px;
         height: 32px;
@@ -93,7 +90,6 @@
         flex-shrink: 0;
       }
 
-      /* ── PDF badge ── */
       #pdf-badge {
         display: none;
         align-items: center;
@@ -112,7 +108,6 @@
       }
       #pdf-badge .remove-pdf:hover { color: #dc3545; }
 
-      /* ── Input area ── */
       .input-area {
         background: #fff;
         border-radius: 12px;
@@ -164,7 +159,6 @@
       }
       .btn-attach:hover { background: #f8f9fa; border-color: #5c5fc4; color: #5c5fc4; }
 
-      /* ── Typing indicator ── */
       .typing-indicator {
         display: flex;
         gap: 4px;
@@ -189,37 +183,31 @@
 
     <div class="chat-wrapper">
 
-      <!-- Header -->
       <div class="chat-header">🤖 Resume Helper Chatbot</div>
 
-      <!-- Chat history -->
       <div id="chat-history">
-        <!-- Initial bot greeting -->
         <div class="bubble-row bot">
           <div class="avatar">AI</div>
           <div class="bubble">Hi! How can I help you today?</div>
         </div>
       </div>
 
-      <!-- Input area -->
       <div class="input-area">
 
-        <!-- PDF badge (shown when a file is selected) -->
+        <!-- File badge (shown when a file is selected) -->
         <div id="pdf-badge">
           📄 <span id="pdf-name"></span>
           <span class="remove-pdf" onclick="removePdf()">✕</span>
         </div>
 
         <div class="input-row">
-          <!-- Hidden file input -->
-          <input type="file" id="pdf-input" accept=".pdf" style="display:none" onchange="handlePdfSelect(event)">
+          <!-- Accept both PDF and TXT -->
+          <input type="file" id="pdf-input" accept=".pdf,.txt" style="display:none" onchange="handleFileSelect(event)">
 
-          <!-- Attach button -->
-          <button class="btn-attach" title="Attach PDF" onclick="document.getElementById('pdf-input').click()">
+          <button class="btn-attach" title="Attach PDF or TXT" onclick="document.getElementById('pdf-input').click()">
             📎
           </button>
 
-          <!-- Message textarea -->
           <textarea
             id="user-input"
             rows="1"
@@ -228,7 +216,6 @@
             oninput="autoResize(this)"
           ></textarea>
 
-          <!-- Send button -->
           <button class="btn-send" id="send-btn" onclick="sendMessage()">Send</button>
         </div>
 
@@ -236,23 +223,18 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
-    <!-- PDF.js for in-browser PDF text extraction -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
     <script>
-      // ── Backend URL injected by FastAPI/Jinja2 from .env ──
       const BACKEND_URL = "{{ backend_url }}";
 
-      // ── PDF state ──
       let pdfText = null;
 
-      // ── Auto-resize textarea ──
       function autoResize(el) {
         el.style.height = "auto";
         el.style.height = Math.min(el.scrollHeight, 120) + "px";
       }
 
-      // ── Send on Enter (Shift+Enter for newline) ──
       function handleKey(e) {
         if (e.key === "Enter" && !e.shiftKey) {
           e.preventDefault();
@@ -260,13 +242,18 @@
         }
       }
 
-      // ── PDF file selection ──
-      function handlePdfSelect(event) {
+      // ── Unified file selection handler ──
+      function handleFileSelect(event) {
         const file = event.target.files[0];
         if (!file) return;
         document.getElementById("pdf-name").textContent = file.name;
         document.getElementById("pdf-badge").style.display = "flex";
-        extractPdfText(file);
+
+        if (file.name.endsWith(".txt")) {
+          extractTxtText(file);
+        } else {
+          extractPdfText(file);
+        }
       }
 
       function removePdf() {
@@ -276,7 +263,13 @@
         document.getElementById("pdf-name").textContent = "";
       }
 
-      // ── Extract text from PDF using PDF.js ──
+      // ── TXT extraction ──
+      async function extractTxtText(file) {
+        const text = await file.text();
+        pdfText = text.trim();
+      }
+
+      // ── PDF extraction using PDF.js ──
       async function extractPdfText(file) {
         pdfjsLib.GlobalWorkerOptions.workerSrc =
           "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
@@ -294,7 +287,6 @@
         pdfText = fullText.trim();
       }
 
-      // ── Append a bubble to chat history ──
       function appendBubble(role, text) {
         const history = document.getElementById("chat-history");
 
@@ -318,7 +310,6 @@
         return bubble;
       }
 
-      // ── Typing indicator ──
       function showTyping() {
         const history = document.getElementById("chat-history");
         const row = document.createElement("div");
@@ -346,31 +337,25 @@
         if (el) el.remove();
       }
 
-      // ── Main send function ──
       async function sendMessage() {
         const input = document.getElementById("user-input");
         const message = input.value.trim();
         if (!message) return;
 
-        // Render user bubble
         appendBubble("user", message);
 
-        // Clear input
         input.value = "";
         input.style.height = "auto";
 
-        // Disable send while waiting
         const sendBtn = document.getElementById("send-btn");
         sendBtn.disabled = true;
 
-        // Build payload
         const payload = { message };
         if (pdfText) {
           payload.pdf_text = pdfText;
-          removePdf(); // clear after sending
+          removePdf();
         }
 
-        // Show typing indicator
         showTyping();
 
         try {

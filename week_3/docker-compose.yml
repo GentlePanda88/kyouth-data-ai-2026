@@ -9,7 +9,8 @@ services:
     ports:
       - "80:8000"
     environment:
-      - BACKEND_URL=http://backend:8001
+      - BACKEND_URL=http://localhost:8001
+      - DB_PATH=/app/jobs.db
     networks:
       - app-network
     depends_on:
