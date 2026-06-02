@@ -36,6 +36,12 @@ class ArticleAnalysis(BaseModel):
     )
 
 
+class ArticleSummary(BaseModel):
+    headline: str = Field(description="Article headline")
+    source: str = Field(description="News source name")
+    sentiment: Sentiment = Field(description="Sentiment of this article")
+    url: str = Field(description="URL to the original article", default="")
+
 class ConsensusOutput(BaseModel):
     ticker: str = Field(description="Stock ticker e.g. 1155 for Maybank")
     company_name: str = Field(
@@ -64,4 +70,8 @@ class ConsensusOutput(BaseModel):
     )
     sources: list[str] = Field(
         description="List of source names used in this analysis"
+    )
+    article_summaries: list[ArticleSummary] = Field(
+    description="Per-article sentiment breakdown",
+    default=[],
     )

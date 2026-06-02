@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from ingestion import fetch_articles, get_company_name, is_supported
-from schemas import ConsensusOutput
+from schemas import ArticleSummary, ConsensusOutput
 
 load_dotenv()
 
@@ -87,6 +87,15 @@ def get_consensus(ticker: str, refresh: bool = False):
 
     # Cache and return
     database.save_consensus(ticker, company_name, consensus.model_dump())
+
+    consensus.article_summaries = [
+        ArticleSummary(
+            headline=a.headline,
+            source=a.source,
+            sentiment=a.sentiment,
+        )
+        for a in analyses
+    ]
     return consensus
 
 
