@@ -1,21 +1,16 @@
 import os
 
-import google.generativeai as genai
 import instructor
 from dotenv import load_dotenv
+from google import genai
 from schemas import ArticleAnalysis, ConsensusOutput
 
 load_dotenv()
 
-genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-
-client = instructor.from_gemini(
-    client=genai.GenerativeModel(
-        model_name="gemini-2.5-flash",
-    ),
-    mode=instructor.Mode.GEMINI_JSON,
+client = instructor.from_genai(
+    client=genai.Client(api_key=os.environ["GEMINI_API_KEY"]),
+    mode=instructor.Mode.GENAI_STRUCTURED_OUTPUTS,
 )
-
 
 def run_reduce_phase(
     ticker: str,
@@ -29,7 +24,6 @@ def run_reduce_phase(
     if not analyses:
         return None
 
-    # Build context block from all article analyses
     analyses_text = ""
     for i, analysis in enumerate(analyses, 1):
         analyses_text += f"""
@@ -62,6 +56,7 @@ def run_reduce_phase(
         result = client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
             response_model=ConsensusOutput,
+            model="gemini-2.5-flash",
         )
         result.ticker = ticker
         result.company_name = company_name

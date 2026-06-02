@@ -1,19 +1,15 @@
 import os
 
-import google.generativeai as genai
 import instructor
 from dotenv import load_dotenv
+from google import genai
 from schemas import ArticleAnalysis
 
 load_dotenv()
 
-genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-
-client = instructor.from_gemini(
-    client=genai.GenerativeModel(
-        model_name="gemini-1.5-flash",
-    ),
-    mode=instructor.Mode.GEMINI_JSON,
+client = instructor.from_genai(
+    client=genai.Client(api_key=os.environ["GEMINI_API_KEY"]),
+    mode=instructor.Mode.GENAI_STRUCTURED_OUTPUTS,
 )
 
 
@@ -43,6 +39,7 @@ def analyse_article(source: str, headline: str, text: str) -> ArticleAnalysis | 
         result = client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
             response_model=ArticleAnalysis,
+            model="gemini-2.5-flash",
         )
         result.source = source
         result.headline = headline
