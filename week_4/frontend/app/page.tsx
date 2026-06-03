@@ -114,29 +114,31 @@ export default function Home() {
       <div className="relative min-h-[480px] flex items-center justify-center overflow-hidden pt-16">
 
         {/* Bull — left */}
-        <div className="absolute left-0 top-0 bottom-0 w-1/3 pointer-events-none">
+        <div className="absolute left-0 top-0 bottom-0 w-2/5 pointer-events-none">
           <Image
-            src="/bull-bear.png"
+            src="/bull.jpg"
             alt="Bull"
             fill
-            className="object-cover object-left opacity-40"
-            style={{ objectPosition: "25% center" }}
+            className="object-cover object-center"
+            style={{ opacity: 0.35 }}
             priority
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent to-[#0a0e0a]" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0a0e0a]/20 via-transparent to-[#0a0e0a]" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#0a0e0a]/60 to-[#0a0e0a]/60" />
         </div>
 
         {/* Bear — right */}
-        <div className="absolute right-0 top-0 bottom-0 w-1/3 pointer-events-none">
+        <div className="absolute right-0 top-0 bottom-0 w-2/5 pointer-events-none">
           <Image
-            src="/bull-bear.png"
+            src="/bear.jpg"
             alt="Bear"
             fill
-            className="object-cover object-right opacity-40"
-            style={{ objectPosition: "75% center" }}
+            className="object-cover object-center"
+            style={{ opacity: 0.35 }}
             priority
           />
-          <div className="absolute inset-0 bg-gradient-to-l from-transparent to-[#0a0e0a]" />
+          <div className="absolute inset-0 bg-gradient-to-l from-[#0a0e0a]/20 via-transparent to-[#0a0e0a]" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#0a0e0a]/60 to-[#0a0e0a]/60" />
         </div>
 
         {/* Center content */}
@@ -148,7 +150,6 @@ export default function Home() {
             AI-powered insights for smarter investment decisions
           </p>
 
-          {/* Search bar */}
           <div className="flex gap-2">
             <div className="flex-1 relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm">🔍</span>
@@ -210,8 +211,6 @@ export default function Home() {
 
             {/* Metric Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-
-              {/* Sentiment */}
               <div className="bg-[#0f140f] border border-gray-800 rounded-2xl p-6 hover:border-gray-700 transition-colors">
                 <p className="text-gray-500 text-xs uppercase tracking-widest mb-4">Overall Sentiment</p>
                 <div className="flex items-center gap-4">
@@ -229,17 +228,12 @@ export default function Home() {
                       {consensus.overall_sentiment}
                     </div>
                     <div className="text-gray-600 text-xs mt-0.5">
-                      {consensus.overall_sentiment === "bullish"
-                        ? "Market outlook positive"
-                        : consensus.overall_sentiment === "bearish"
-                        ? "Market outlook negative"
-                        : "Market outlook mixed"}
+                      {consensus.overall_sentiment === "bullish" ? "Market outlook positive" : consensus.overall_sentiment === "bearish" ? "Market outlook negative" : "Market outlook mixed"}
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Confidence */}
               <div className="bg-[#0f140f] border border-gray-800 rounded-2xl p-6 hover:border-gray-700 transition-colors">
                 <p className="text-gray-500 text-xs uppercase tracking-widest mb-4">Confidence Score</p>
                 <div className="text-5xl font-bold text-white mb-4">
@@ -257,7 +251,6 @@ export default function Home() {
                 </p>
               </div>
 
-              {/* Risk */}
               <div className="bg-[#0f140f] border border-gray-800 rounded-2xl p-6 hover:border-gray-700 transition-colors">
                 <p className="text-gray-500 text-xs uppercase tracking-widest mb-4">Risk Rating</p>
                 <div className={`text-5xl font-bold capitalize mb-4 ${riskColor(consensus.risk_rating)}`}>
@@ -302,45 +295,68 @@ export default function Home() {
                       <div className="w-8 h-8 bg-gray-800 rounded-lg flex items-center justify-center text-xs font-bold text-gray-300 flex-shrink-0">
                         {source.charAt(0).toUpperCase()}
                       </div>
-                      <div>
-                        <p className="text-sm text-gray-300 leading-tight">{source}</p>
-                      </div>
+                      <p className="text-sm text-gray-300">{source}</p>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
 
-            {/* Bull vs Bear */}
+            {/* Bull vs Bear with background images */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="bg-[#0a120a] border border-green-900/40 rounded-2xl p-6">
-                <div className="flex items-center gap-2 mb-5">
-                  <span className="text-green-400 text-lg font-bold">↗</span>
-                  <h3 className="font-bold text-green-400 uppercase tracking-widest text-sm">Positive Factors</h3>
+
+              {/* Positive Factors — Bull background */}
+              <div className="relative overflow-hidden bg-[#0a120a] border border-green-900/40 rounded-2xl p-6">
+                <div className="absolute inset-0 pointer-events-none">
+                  <Image
+                    src="/bull.jpg"
+                    alt=""
+                    fill
+                    className="object-cover object-center opacity-10"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-r from-[#0a120a]/95 via-[#0a120a]/80 to-[#0a120a]/60" />
                 </div>
-                <ul className="space-y-3">
-                  {consensus.bull_case.map((point, i) => (
-                    <li key={i} className="flex gap-3 text-sm text-gray-300 leading-snug">
-                      <span className="text-green-500 mt-0.5 flex-shrink-0 font-bold">✓</span>
-                      {point}
-                    </li>
-                  ))}
-                </ul>
+                <div className="relative z-10">
+                  <div className="flex items-center gap-2 mb-5">
+                    <span className="text-green-400 text-lg font-bold">↗</span>
+                    <h3 className="font-bold text-green-400 uppercase tracking-widest text-sm">Positive Factors</h3>
+                  </div>
+                  <ul className="space-y-3">
+                    {consensus.bull_case.map((point, i) => (
+                      <li key={i} className="flex gap-3 text-sm text-gray-300 leading-snug">
+                        <span className="text-green-500 mt-0.5 flex-shrink-0 font-bold">✓</span>
+                        {point}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </div>
 
-              <div className="bg-[#120a0a] border border-red-900/40 rounded-2xl p-6">
-                <div className="flex items-center gap-2 mb-5">
-                  <span className="text-red-400 text-lg font-bold">↘</span>
-                  <h3 className="font-bold text-red-400 uppercase tracking-widest text-sm">Negative Factors</h3>
+              {/* Negative Factors — Bear background */}
+              <div className="relative overflow-hidden bg-[#120a0a] border border-red-900/40 rounded-2xl p-6">
+                <div className="absolute inset-0 pointer-events-none">
+                  <Image
+                    src="/bear.jpg"
+                    alt=""
+                    fill
+                    className="object-cover object-center opacity-10"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-l from-[#120a0a]/95 via-[#120a0a]/80 to-[#120a0a]/60" />
                 </div>
-                <ul className="space-y-3">
-                  {consensus.bear_case.map((point, i) => (
-                    <li key={i} className="flex gap-3 text-sm text-gray-300 leading-snug">
-                      <span className="text-red-500 mt-0.5 flex-shrink-0 font-bold">✗</span>
-                      {point}
-                    </li>
-                  ))}
-                </ul>
+                <div className="relative z-10">
+                  <div className="flex items-center gap-2 mb-5">
+                    <span className="text-red-400 text-lg font-bold">↘</span>
+                    <h3 className="font-bold text-red-400 uppercase tracking-widest text-sm">Negative Factors</h3>
+                  </div>
+                  <ul className="space-y-3">
+                    {consensus.bear_case.map((point, i) => (
+                      <li key={i} className="flex gap-3 text-sm text-gray-300 leading-snug">
+                        <span className="text-red-500 mt-0.5 flex-shrink-0 font-bold">✗</span>
+                        {point}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </div>
             </div>
 
